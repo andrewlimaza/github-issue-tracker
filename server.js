@@ -50,7 +50,10 @@ app.get('/api/issues', async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching issues:', error.message);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ 
+            error: 'Failed to fetch issues. Please check your GitHub token.',
+            details: error.message 
+        });
     }
 });
 
@@ -68,35 +71,40 @@ async function fetchAllRepos() {
         headers['Authorization'] = `token ${GITHUB_TOKEN}`;
     }
 
-    while (true) {
-        const response = await axios.get(`https://api.github.com/orgs/${ORG_NAME}/repos`, {
-            params: {
-                type: 'public',
-                per_page: perPage,
-                page: page
-            },
-            headers
-        });
+    try {
+        while (true) {
+            const response = await axios.get(`https://api.github.com/orgs/${ORG_NAME}/repos`, {
+                params: {
+                    type: 'public',
+                    per_page: perPage,
+                    page: page
+                },
+                headers
+            });
 
-        const data = response.data;
-        repos.push(...data);
+            const data = response.data;
+            repos.push(...data);
 
-        if (data.length < perPage) {
-            break;
+            if (data.length < perPage) {
+                break;
+            }
+            page++;
         }
-        page++;
-    }
 
-    return repos
-        .map(repo => ({
-            name: repo.name,
-            full_name: repo.full_name,
-            description: repo.description,
-            url: repo.html_url,
-            open_issues: repo.open_issues_count,
-            pushed_at: repo.pushed_at
-        }))
-        .sort((a, b) => new Date(b.pushed_at) - new Date(a.pushed_at));
+        return repos
+            .map(repo => ({
+                name: repo.name,
+                full_name: repo.full_name,
+                description: repo.description,
+                url: repo.html_url,
+                open_issues: repo.open_issues_count,
+                pushed_at: repo.pushed_at
+            }))
+            .sort((a, b) => new Date(b.pushed_at) - new Date(a.pushed_at));
+    } catch (error) {
+        console.error('Error fetching repos:', error.response?.status, error.message);
+        throw new Error(`GitHub API error: ${error.response?.status || error.message}`);
+    }
 }
 
 async function fetchIssuesByLabel(repoName, label, limit = 100) {
@@ -120,21 +128,28 @@ async function fetchIssuesByLabel(repoName, label, limit = 100) {
         headers['Authorization'] = `token ${GITHUB_TOKEN}`;
     }
 
-    const response = await axios.get(`https://api.github.com/repos/${ORG_NAME}/${repoName}/issues`, {
-        params,
-        headers
-    });
+    try {
+        const response = await axios.get(`https://api.github.com/repos/${ORG_NAME}/${repoName}/issues`, {
+            params,
+            headers
+        });
 
-    return response.data.slice(0, limit).map(issue => ({
-        number: issue.number,
-        title: issue.title,
-        url: issue.html_url,
-        labels: issue.labels.map(l => ({ name: l.name, color: l.color })),
-        created_at: issue.created_at,
-        updated_at: issue.updated_at,
-        user: issue.user.login,
-        repo: repoName
-    }));
+        return response.data.slice(0, limit).map(issue => ({
+            number: issue.number,
+            title: issue.title,
+            url: issue.html_url,
+            labels: issue.labels.map(l => ({ name: l.name, color: l.color })),
+            created_at: issue.created_at,
+            updated_at: issue.updated_at,
+            user: issue.user.login,
+            repo: repoName
+        }));
+    } catch (error) {
+        if (error.response?.status === 404) {
+            return [];
+        }
+        throw error;
+    }
 }
 
 app.listen(PORT, () => {
