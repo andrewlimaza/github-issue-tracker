@@ -21,19 +21,23 @@ app.get('/api/issues', async (req, res) => {
 
     try {
         const repos = await fetchAllRepos();
+        const reposWithIssues = repos.filter(r => r.open_issues > 0);
         const allIssues = [];
-
-        for (const repo of repos) {
-            if (allIssues.length >= LIMIT) {
-                break;
-            }
-
-            try {
-                const issues = await fetchIssuesByLabel(repo.name, label, LIMIT - allIssues.length);
-                allIssues.push(...issues);
-            } catch (error) {
-                console.error(`Error fetching issues for ${repo.name}:`, error.message);
-            }
+        
+        const batchSize = 5;
+        for (let i = 0; i < reposWithIssues.length && allIssues.length < LIMIT; i += batchSize) {
+            const batch = reposWithIssues.slice(i, i + batchSize);
+            
+            const promises = batch.map(repo => 
+                fetchIssuesByLabel(repo.name, label, LIMIT)
+                    .catch(err => {
+                        console.error(`Error fetching issues for ${repo.name}:`, err.message);
+                        return [];
+                    })
+            );
+            
+            const results = await Promise.all(promises);
+            results.forEach(issues => allIssues.push(...issues));
         }
 
         allIssues.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -96,13 +100,9 @@ async function fetchAllRepos() {
 }
 
 async function fetchIssuesByLabel(repoName, label, limit = 100) {
-    const issues = [];
-    let page = 1;
-    const perPage = Math.min(100, limit);
-
     const params = {
         state: 'open',
-        per_page: perPage,
+        per_page: Math.min(100, limit),
         sort: 'created',
         direction: 'desc'
     };
@@ -120,22 +120,12 @@ async function fetchIssuesByLabel(repoName, label, limit = 100) {
         headers['Authorization'] = `token ${GITHUB_TOKEN}`;
     }
 
-    while (issues.length < limit) {
-        const response = await axios.get(`https://api.github.com/repos/${ORG_NAME}/${repoName}/issues`, {
-            params: { ...params, page, per_page: Math.min(perPage, limit - issues.length) },
-            headers
-        });
+    const response = await axios.get(`https://api.github.com/repos/${ORG_NAME}/${repoName}/issues`, {
+        params,
+        headers
+    });
 
-        const data = response.data;
-        issues.push(...data);
-
-        if (data.length < perPage) {
-            break;
-        }
-        page++;
-    }
-
-    return issues.slice(0, limit).map(issue => ({
+    return response.data.slice(0, limit).map(issue => ({
         number: issue.number,
         title: issue.title,
         url: issue.html_url,
