@@ -17,14 +17,19 @@ app.get('/', (req, res) => {
 
 app.get('/api/issues', async (req, res) => {
     const { label } = req.query;
+    const LIMIT = 50;
 
     try {
         const repos = await fetchAllRepos();
         const allIssues = [];
 
         for (const repo of repos) {
+            if (allIssues.length >= LIMIT) {
+                break;
+            }
+
             try {
-                const issues = await fetchIssuesByLabel(repo.name, label);
+                const issues = await fetchIssuesByLabel(repo.name, label, LIMIT - allIssues.length);
                 allIssues.push(...issues);
             } catch (error) {
                 console.error(`Error fetching issues for ${repo.name}:`, error.message);
@@ -32,7 +37,7 @@ app.get('/api/issues', async (req, res) => {
         }
 
         allIssues.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        const limitedIssues = allIssues.slice(0, 50);
+        const limitedIssues = allIssues.slice(0, LIMIT);
 
         res.json({ 
             issues: limitedIssues, 
@@ -78,19 +83,22 @@ async function fetchAllRepos() {
         page++;
     }
 
-    return repos.map(repo => ({
-        name: repo.name,
-        full_name: repo.full_name,
-        description: repo.description,
-        url: repo.html_url,
-        open_issues: repo.open_issues_count
-    }));
+    return repos
+        .map(repo => ({
+            name: repo.name,
+            full_name: repo.full_name,
+            description: repo.description,
+            url: repo.html_url,
+            open_issues: repo.open_issues_count,
+            pushed_at: repo.pushed_at
+        }))
+        .sort((a, b) => new Date(b.pushed_at) - new Date(a.pushed_at));
 }
 
-async function fetchIssuesByLabel(repoName, label) {
+async function fetchIssuesByLabel(repoName, label, limit = 100) {
     const issues = [];
     let page = 1;
-    const perPage = 100;
+    const perPage = Math.min(100, limit);
 
     const params = {
         state: 'open',
@@ -112,9 +120,9 @@ async function fetchIssuesByLabel(repoName, label) {
         headers['Authorization'] = `token ${GITHUB_TOKEN}`;
     }
 
-    while (true) {
+    while (issues.length < limit) {
         const response = await axios.get(`https://api.github.com/repos/${ORG_NAME}/${repoName}/issues`, {
-            params: { ...params, page },
+            params: { ...params, page, per_page: Math.min(perPage, limit - issues.length) },
             headers
         });
 
@@ -127,7 +135,7 @@ async function fetchIssuesByLabel(repoName, label) {
         page++;
     }
 
-    return issues.map(issue => ({
+    return issues.slice(0, limit).map(issue => ({
         number: issue.number,
         title: issue.title,
         url: issue.html_url,
