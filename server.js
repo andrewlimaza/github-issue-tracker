@@ -1,0 +1,146 @@
+require('dotenv').config();
+const express = require('express');
+const axios = require('axios');
+const path = require('path');
+
+const app = express();
+const PORT = process.env.PORT || 8080;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const ORG_NAME = 'strangerstudios';
+
+app.use(express.json());
+app.use(express.static('public'));
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/api/issues', async (req, res) => {
+    const { label } = req.query;
+
+    try {
+        const repos = await fetchAllRepos();
+        const allIssues = [];
+
+        for (const repo of repos) {
+            try {
+                const issues = await fetchIssuesByLabel(repo.name, label);
+                allIssues.push(...issues);
+            } catch (error) {
+                console.error(`Error fetching issues for ${repo.name}:`, error.message);
+            }
+        }
+
+        allIssues.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const limitedIssues = allIssues.slice(0, 50);
+
+        res.json({ 
+            issues: limitedIssues, 
+            total: allIssues.length,
+            showing: limitedIssues.length 
+        });
+    } catch (error) {
+        console.error('Error fetching issues:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+async function fetchAllRepos() {
+    const repos = [];
+    let page = 1;
+    const perPage = 100;
+
+    const headers = {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'GitHub-Issue-Crawler'
+    };
+
+    if (GITHUB_TOKEN) {
+        headers['Authorization'] = `token ${GITHUB_TOKEN}`;
+    }
+
+    while (true) {
+        const response = await axios.get(`https://api.github.com/orgs/${ORG_NAME}/repos`, {
+            params: {
+                type: 'public',
+                per_page: perPage,
+                page: page
+            },
+            headers
+        });
+
+        const data = response.data;
+        repos.push(...data);
+
+        if (data.length < perPage) {
+            break;
+        }
+        page++;
+    }
+
+    return repos.map(repo => ({
+        name: repo.name,
+        full_name: repo.full_name,
+        description: repo.description,
+        url: repo.html_url,
+        open_issues: repo.open_issues_count
+    }));
+}
+
+async function fetchIssuesByLabel(repoName, label) {
+    const issues = [];
+    let page = 1;
+    const perPage = 100;
+
+    const params = {
+        state: 'open',
+        per_page: perPage,
+        sort: 'created',
+        direction: 'desc'
+    };
+
+    if (label && label !== 'all') {
+        params.labels = label;
+    }
+
+    const headers = {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'GitHub-Issue-Crawler'
+    };
+
+    if (GITHUB_TOKEN) {
+        headers['Authorization'] = `token ${GITHUB_TOKEN}`;
+    }
+
+    while (true) {
+        const response = await axios.get(`https://api.github.com/repos/${ORG_NAME}/${repoName}/issues`, {
+            params: { ...params, page },
+            headers
+        });
+
+        const data = response.data;
+        issues.push(...data);
+
+        if (data.length < perPage) {
+            break;
+        }
+        page++;
+    }
+
+    return issues.map(issue => ({
+        number: issue.number,
+        title: issue.title,
+        url: issue.html_url,
+        labels: issue.labels.map(l => ({ name: l.name, color: l.color })),
+        created_at: issue.created_at,
+        updated_at: issue.updated_at,
+        user: issue.user.login,
+        repo: repoName
+    }));
+}
+
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Organization: ${ORG_NAME}`);
+    console.log(`GitHub Token: ${GITHUB_TOKEN ? 'Configured' : 'Not configured'}`);
+});

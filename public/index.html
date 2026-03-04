@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stranger Studios Issue Crawler</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .search-section {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .label-section {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            background: white;
+            cursor: pointer;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 18px;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c33;
+        }
+
+        .stats {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .stats-number {
+            font-size: 36px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stats-label {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .issues-section {
+            margin-top: 30px;
+        }
+
+        .issue-item {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: box-shadow 0.2s;
+        }
+
+        .issue-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .issue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .issue-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            flex: 1;
+        }
+
+        .issue-title a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .issue-title a:hover {
+            text-decoration: underline;
+        }
+
+        .issue-repo {
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .issue-meta {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            font-size: 13px;
+            color: #888;
+            margin-top: 10px;
+        }
+
+        .label-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        .no-issues {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .search-section {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Stranger Studios Issue Crawler</h1>
+        <p class="subtitle">Filter and browse issues from strangerstudios repositories</p>
+        
+        <div class="search-section">
+            <div class="label-section">
+                <label for="labelSelect">Filter by Label:</label>
+                <select id="labelSelect">
+                    <option value="all">All Issues</option>
+                    <option value="Good First Bug">Good First Bug</option>
+                    <option value="Difficulty: Easy">Difficulty: Easy</option>
+                    <option value="Difficulty: Medium">Difficulty: Medium</option>
+                    <option value="Difficulty: Hard">Difficulty: Hard</option>
+                    <option value="Type: Bug">Type: Bug</option>
+                    <option value="Type: Enhancement">Type: Enhancement</option>
+                    <option value="Type: Feature">Type: Feature</option>
+                    <option value="Type: Support">Type: Support</option>
+                    <option value="Type: Discussion">Type: Discussion</option>
+                    <option value="Type: Epic">Type: Epic</option>
+                    <option value="Type: Refactor">Type: Refactor</option>
+                    <option value="Type: Localization">Type: Localization</option>
+                    <option value="Type: Conflict">Type: Conflict</option>
+                    <option value="Type: Customization">Type: Customization</option>
+                    <option value="Type: New Add On">Type: New Add On</option>
+                    <option value="Type: New Gateway">Type: New Gateway</option>
+                    <option value="Type: Existing Add On">Type: Existing Add On</option>
+                    <option value="Impact: High">Impact: High</option>
+                    <option value="Impact: Medium">Impact: Medium</option>
+                    <option value="Impact: Low">Impact: Low</option>
+                    <option value="Impact: Highest">Impact: Highest</option>
+                    <option value="Status: Needs Code">Status: Needs Code</option>
+                    <option value="Status: Needs Fix">Status: Needs Fix</option>
+                    <option value="Status: Needs Thought">Status: Needs Thought</option>
+                    <option value="Status: Code Review">Status: Code Review</option>
+                    <option value="Status: Need to Recreate">Status: Need to Recreate</option>
+                    <option value="Blocking Next Release">Blocking Next Release</option>
+                    <option value="has PR">has PR</option>
+                    <option value="dependencies">dependencies</option>
+                </select>
+            </div>
+            <button id="searchBtn" onclick="searchIssues()">Search Issues</button>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="loading" class="loading" style="display: none;">Loading...</div>
+        
+        <div id="stats" class="stats" style="display: none;">
+            <div class="stats-number" id="showingIssues">0</div>
+            <div class="stats-label">Showing <span id="showingCount">0</span> of <span id="totalCount">0</span> total issues (newest first)</div>
+        </div>
+
+        <div id="results" class="issues-section"></div>
+    </div>
+
+    <script>
+        async function searchIssues() {
+            const label = document.getElementById('labelSelect').value;
+            
+            hideError();
+            showLoading(true);
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('stats').style.display = 'none';
+
+            try {
+                const response = await fetch(`/api/issues?label=${encodeURIComponent(label)}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to fetch issues');
+                }
+
+                displayIssues(data.issues);
+                updateStats(data.showing, data.total);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function displayIssues(issues) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (issues.length === 0) {
+                resultsDiv.innerHTML = '<div class="no-issues">No issues found with the selected label</div>';
+                return;
+            }
+
+            issues.forEach(issue => {
+                const issueItem = document.createElement('div');
+                issueItem.className = 'issue-item';
+
+                const labelsHtml = issue.labels.map(l => 
+                    `<span class="label-tag" style="background-color: #${l.color}; color: ${getContrastColor(l.color)}">${escapeHtml(l.name)}</span>`
+                ).join('');
+
+                issueItem.innerHTML = `
+                    <div class="issue-header">
+                        <div class="issue-title">
+                            <a href="${issue.url}" target="_blank">#${issue.number} - ${escapeHtml(issue.title)}</a>
+                        </div>
+                        <span class="issue-repo">${escapeHtml(issue.repo)}</span>
+                    </div>
+                    <div>${labelsHtml}</div>
+                    <div class="issue-meta">
+                        <span>by @${escapeHtml(issue.user)}</span>
+                        <span>Created: ${new Date(issue.created_at).toLocaleDateString()}</span>
+                    </div>
+                `;
+
+                resultsDiv.appendChild(issueItem);
+            });
+        }
+
+        function updateStats(showing, total) {
+            document.getElementById('showingIssues').textContent = showing;
+            document.getElementById('showingCount').textContent = showing;
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('stats').style.display = 'block';
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('error').style.display = 'none';
+        }
+
+        function showLoading(show) {
+            const loadingDiv = document.getElementById('loading');
+            const searchBtn = document.getElementById('searchBtn');
+            
+            loadingDiv.style.display = show ? 'block' : 'none';
+            searchBtn.disabled = show;
+            
+            if (show) {
+                searchBtn.textContent = 'Loading...';
+            } else {
+                searchBtn.textContent = 'Search Issues';
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function getContrastColor(hexColor) {
+            const r = parseInt(hexColor.substr(0, 2), 16);
+            const g = parseInt(hexColor.substr(2, 2), 16);
+            const b = parseInt(hexColor.substr(4, 2), 16);
+            const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            return luminance > 0.5 ? '#000000' : '#ffffff';
+        }
+
+        document.getElementById('labelSelect').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchIssues();
+            }
+        });
+    </script>
+</body>
+</html>
