@@ -273,6 +273,7 @@
                 </select>
             </div>
             <button id="searchBtn" onclick="searchIssues()">Search Issues</button>
+            <button id="exportBtn" onclick="exportJSON()" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">Export JSON</button>
         </div>
 
         <div id="error" class="error" style="display: none;"></div>
@@ -396,6 +397,12 @@
                 searchIssues();
             }
         });
+
+        function exportJSON() {
+            const label = document.getElementById('labelSelect').value;
+            const url = `/api/issues.json?label=${encodeURIComponent(label)}`;
+            window.location.href = url;
+        }
     </script>
 </body>
 </html>

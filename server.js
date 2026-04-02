@@ -46,7 +46,53 @@ app.get('/api/issues', async (req, res) => {
         res.json({ 
             issues: limitedIssues, 
             total: allIssues.length,
-            showing: limitedIssues.length 
+            showing: limitedIssues.length,
+            label: label || 'all',
+            generated_at: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Error fetching issues:', error.message);
+        res.status(500).json({ 
+            error: 'Failed to fetch issues. Please check your GitHub token.',
+            details: error.message 
+        });
+    }
+});
+
+// JSON export endpoint for AI consumption
+app.get('/api/issues.json', async (req, res) => {
+    const { label } = req.query;
+    
+    try {
+        const repos = await fetchAllRepos();
+        const reposWithIssues = repos.filter(r => r.open_issues > 0);
+        const allIssues = [];
+        
+        const batchSize = 5;
+        for (let i = 0; i < reposWithIssues.length; i += batchSize) {
+            const batch = reposWithIssues.slice(i, i + batchSize);
+            
+            const promises = batch.map(repo => 
+                fetchIssuesByLabel(repo.name, label)
+                    .catch(err => {
+                        console.error(`Error fetching issues for ${repo.name}:`, err.message);
+                        return [];
+                    })
+            );
+            
+            const results = await Promise.all(promises);
+            results.forEach(issues => allIssues.push(...issues));
+        }
+
+        allIssues.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="issues-${label || 'all'}.json"`);
+        res.json({
+            label: label || 'all',
+            total: allIssues.length,
+            generated_at: new Date().toISOString(),
+            issues: allIssues
         });
     } catch (error) {
         console.error('Error fetching issues:', error.message);
