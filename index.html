@@ -329,6 +329,38 @@
             return headers;
         }
 
+        const DEFAULT_LABELS = [
+            'Good First Bug',
+            'Difficulty: Easy',
+            'Difficulty: Medium',
+            'Difficulty: Hard',
+            'Type: Bug',
+            'Type: Enhancement',
+            'Type: Feature',
+            'Type: Support',
+            'Type: Discussion',
+            'Type: Epic',
+            'Type: Refactor',
+            'Type: Localization',
+            'Type: Conflict',
+            'Type: Customization',
+            'Type: New Add On',
+            'Type: New Gateway',
+            'Type: Existing Add On',
+            'Impact: High',
+            'Impact: Medium',
+            'Impact: Low',
+            'Impact: Highest',
+            'Status: Needs Code',
+            'Status: Needs Fix',
+            'Status: Needs Thought',
+            'Status: Code Review',
+            'Status: Need to Recreate',
+            'Blocking Next Release',
+            'has PR',
+            'dependencies'
+        ];
+
         async function loadLabels() {
             const org = getOrgName();
             if (!org) {
@@ -374,19 +406,31 @@
                 const select = document.getElementById('labelSelect');
                 select.innerHTML = '<option value="all">All Issues</option>';
                 
-                // Sort labels alphabetically
-                const sortedLabels = Array.from(labelSet.entries()).sort((a, b) => 
-                    a[0].toLowerCase().localeCompare(b[0].toLowerCase())
-                );
-                
-                sortedLabels.forEach(([name, color]) => {
-                    const option = document.createElement('option');
-                    option.value = name;
-                    option.textContent = name;
-                    select.appendChild(option);
-                });
+                // If no labels found, use defaults
+                if (labelSet.size === 0) {
+                    DEFAULT_LABELS.forEach(name => {
+                        const option = document.createElement('option');
+                        option.value = name;
+                        option.textContent = name;
+                        select.appendChild(option);
+                    });
+                    loadBtn.textContent = 'Using default labels';
+                } else {
+                    // Sort labels alphabetically
+                    const sortedLabels = Array.from(labelSet.entries()).sort((a, b) => 
+                        a[0].toLowerCase().localeCompare(b[0].toLowerCase())
+                    );
+                    
+                    sortedLabels.forEach(([name, color]) => {
+                        const option = document.createElement('option');
+                        option.value = name;
+                        option.textContent = name;
+                        select.appendChild(option);
+                    });
 
-                loadBtn.textContent = `Loaded ${labelSet.size} labels`;
+                    loadBtn.textContent = `Loaded ${labelSet.size} labels`;
+                }
+
                 setTimeout(() => {
                     loadBtn.textContent = 'Load Labels';
                     loadBtn.disabled = false;
