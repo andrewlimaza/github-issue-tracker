@@ -278,39 +278,11 @@
                 <label for="labelSelect">Filter by Label:</label>
                 <select id="labelSelect">
                     <option value="all">All Issues</option>
-                    <option value="Good First Bug">Good First Bug</option>
-                    <option value="Difficulty: Easy">Difficulty: Easy</option>
-                    <option value="Difficulty: Medium">Difficulty: Medium</option>
-                    <option value="Difficulty: Hard">Difficulty: Hard</option>
-                    <option value="Type: Bug">Type: Bug</option>
-                    <option value="Type: Enhancement">Type: Enhancement</option>
-                    <option value="Type: Feature">Type: Feature</option>
-                    <option value="Type: Support">Type: Support</option>
-                    <option value="Type: Discussion">Type: Discussion</option>
-                    <option value="Type: Epic">Type: Epic</option>
-                    <option value="Type: Refactor">Type: Refactor</option>
-                    <option value="Type: Localization">Type: Localization</option>
-                    <option value="Type: Conflict">Type: Conflict</option>
-                    <option value="Type: Customization">Type: Customization</option>
-                    <option value="Type: New Add On">Type: New Add On</option>
-                    <option value="Type: New Gateway">Type: New Gateway</option>
-                    <option value="Type: Existing Add On">Type: Existing Add On</option>
-                    <option value="Impact: High">Impact: High</option>
-                    <option value="Impact: Medium">Impact: Medium</option>
-                    <option value="Impact: Low">Impact: Low</option>
-                    <option value="Impact: Highest">Impact: Highest</option>
-                    <option value="Status: Needs Code">Status: Needs Code</option>
-                    <option value="Status: Needs Fix">Status: Needs Fix</option>
-                    <option value="Status: Needs Thought">Status: Needs Thought</option>
-                    <option value="Status: Code Review">Status: Code Review</option>
-                    <option value="Status: Need to Recreate">Status: Need to Recreate</option>
-                    <option value="Blocking Next Release">Blocking Next Release</option>
-                    <option value="has PR">has PR</option>
-                    <option value="dependencies">dependencies</option>
                 </select>
             </div>
             <button id="searchBtn" onclick="searchIssues()">Search Issues</button>
             <button id="exportBtn" class="export" onclick="exportJSON()">Export JSON</button>
+            <button id="loadLabelsBtn" onclick="loadLabels()" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%);">Load Labels</button>
         </div>
 
         <div id="error" class="error" style="display: none;"></div>
@@ -355,6 +327,76 @@
                 headers['Authorization'] = `token ${token}`;
             }
             return headers;
+        }
+
+        async function loadLabels() {
+            const org = getOrgName();
+            if (!org) {
+                showError('Please enter an organization name first');
+                return;
+            }
+
+            const loadBtn = document.getElementById('loadLabelsBtn');
+            loadBtn.disabled = true;
+            loadBtn.textContent = 'Loading...';
+
+            try {
+                // Fetch all repos
+                const repos = await fetchAllRepos();
+                
+                // Collect all unique labels from repos with issues
+                const labelSet = new Map(); // name -> color
+                
+                // Sample first 20 repos with issues for labels
+                const reposWithIssues = repos.filter(r => r.open_issues > 0).slice(0, 20);
+                
+                for (const repo of reposWithIssues) {
+                    try {
+                        const response = await fetch(
+                            `https://api.github.com/repos/${org}/${repo.name}/labels?per_page=100`,
+                            { headers: getHeaders() }
+                        );
+                        
+                        if (response.ok) {
+                            const labels = await response.json();
+                            labels.forEach(l => {
+                                if (!labelSet.has(l.name)) {
+                                    labelSet.set(l.name, l.color);
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.error(`Error fetching labels for ${repo.name}:`, e);
+                    }
+                }
+
+                // Update the select dropdown
+                const select = document.getElementById('labelSelect');
+                select.innerHTML = '<option value="all">All Issues</option>';
+                
+                // Sort labels alphabetically
+                const sortedLabels = Array.from(labelSet.entries()).sort((a, b) => 
+                    a[0].toLowerCase().localeCompare(b[0].toLowerCase())
+                );
+                
+                sortedLabels.forEach(([name, color]) => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    select.appendChild(option);
+                });
+
+                loadBtn.textContent = `Loaded ${labelSet.size} labels`;
+                setTimeout(() => {
+                    loadBtn.textContent = 'Load Labels';
+                    loadBtn.disabled = false;
+                }, 2000);
+
+            } catch (error) {
+                showError(error.message);
+                loadBtn.textContent = 'Load Labels';
+                loadBtn.disabled = false;
+            }
         }
 
         async function fetchAllRepos() {
