@@ -528,6 +528,9 @@
             return applyLimit ? allIssues.slice(0, LIMIT) : allIssues;
         }
 
+        let cachedIssues = null;
+        let cachedLabel = null;
+
         async function searchIssues() {
             const label = document.getElementById('labelSelect').value;
             
@@ -538,6 +541,8 @@
 
             try {
                 const issues = await fetchAllIssues(label, true);
+                cachedIssues = issues;
+                cachedLabel = label;
                 displayIssues(issues);
                 updateStats(issues.length, issues.length);
             } catch (error) {
@@ -547,37 +552,25 @@
             }
         }
 
-        async function viewJSON() {
-            const label = document.getElementById('labelSelect').value;
-            
-            hideError();
-            showLoading(true, 'Exporting all issues...');
-
-            try {
-                const issues = await fetchAllIssues(label, false);
-                
-                const exportData = {
-                    label: label || 'all',
-                    total: issues.length,
-                    generated_at: new Date().toISOString(),
-                    organization: getOrgName(),
-                    issues: issues
-                };
-
-                // Open JSON in new tab
-                const jsonStr = JSON.stringify(exportData, null, 2);
-                const blob = new Blob([jsonStr], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const newTab = window.open(url, '_blank');
-                
-                // Clean up URL after a delay
-                setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-                showLoading(false);
-            } catch (error) {
-                showError(error.message);
-                showLoading(false);
+        function viewJSON() {
+            if (!cachedIssues || cachedIssues.length === 0) {
+                showError('No issues loaded. Click "Search Issues" first.');
+                return;
             }
+
+            const exportData = {
+                label: cachedLabel || 'all',
+                total: cachedIssues.length,
+                generated_at: new Date().toISOString(),
+                organization: getOrgName(),
+                issues: cachedIssues
+            };
+
+            const jsonStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
 
         function displayIssues(issues) {
