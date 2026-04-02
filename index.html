@@ -258,8 +258,14 @@
 </head>
 <body>
     <div class="container">
-        <h1>Stranger Studios Issue Tracker</h1>
-        <p class="subtitle">Filter and browse issues from strangerstudios repositories</p>
+        <h1>GitHub Issue Tracker</h1>
+        <p class="subtitle">Filter and browse issues from any GitHub organization</p>
+        
+        <div class="token-section">
+            <label for="orgName">GitHub Organization:</label>
+            <input type="text" id="orgName" placeholder="e.g. strangerstudios" value="strangerstudios">
+            <small>Enter the GitHub organization name to fetch issues from.</small>
+        </div>
         
         <div class="token-section">
             <label for="githubToken">GitHub Token (optional - increases rate limit):</label>
@@ -319,16 +325,25 @@
     </div>
 
     <script>
-        const ORG_NAME = 'strangerstudios';
+        const DEFAULT_ORG = 'strangerstudios';
         const LIMIT = 50;
 
-        // Load token from localStorage
+        // Load saved values from localStorage
         document.getElementById('githubToken').value = localStorage.getItem('github_token') || '';
+        document.getElementById('orgName').value = localStorage.getItem('github_org') || DEFAULT_ORG;
 
-        // Save token on change
+        // Save values on change
         document.getElementById('githubToken').addEventListener('change', function() {
             localStorage.setItem('github_token', this.value);
         });
+
+        document.getElementById('orgName').addEventListener('change', function() {
+            localStorage.setItem('github_org', this.value);
+        });
+
+        function getOrgName() {
+            return document.getElementById('orgName').value.trim() || DEFAULT_ORG;
+        }
 
         function getHeaders() {
             const headers = {
@@ -349,7 +364,7 @@
 
             while (true) {
                 const response = await fetch(
-                    `https://api.github.com/orgs/${ORG_NAME}/repos?type=public&per_page=${perPage}&page=${page}`,
+                    `https://api.github.com/orgs/${getOrgName()}/repos?type=public&per_page=${perPage}&page=${page}`,
                     { headers: getHeaders() }
                 );
 
@@ -377,7 +392,7 @@
         }
 
         async function fetchIssuesByLabel(repoName, label, limit = 100) {
-            let url = `https://api.github.com/repos/${ORG_NAME}/${repoName}/issues?state=open&per_page=${Math.min(100, limit)}&sort=created&direction=desc`;
+            let url = `https://api.github.com/repos/${getOrgName()}/${repoName}/issues?state=open&per_page=${Math.min(100, limit)}&sort=created&direction=desc`;
             if (label && label !== 'all') {
                 url += `&labels=${encodeURIComponent(label)}`;
             }
@@ -459,7 +474,7 @@
                     label: label || 'all',
                     total: issues.length,
                     generated_at: new Date().toISOString(),
-                    organization: ORG_NAME,
+                    organization: getOrgName(),
                     issues: issues
                 };
 
@@ -467,7 +482,7 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `strangerstudios-issues-${label || 'all'}.json`;
+                a.download = `github-issues-${getOrgName()}-${label || 'all'}.json`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
