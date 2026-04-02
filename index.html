@@ -281,7 +281,7 @@
                 </select>
             </div>
             <button id="searchBtn" onclick="searchIssues()">Search Issues</button>
-            <button id="exportBtn" class="export" onclick="exportJSON()">Export JSON</button>
+            <button id="viewBtn" class="export" onclick="viewJSON()">View JSON</button>
             <button id="loadLabelsBtn" onclick="loadLabels()" style="background: linear-gradient(135deg, #6c757d 0%, #495057 100%);">Load Labels</button>
         </div>
 
@@ -547,7 +547,7 @@
             }
         }
 
-        async function exportJSON() {
+        async function viewJSON() {
             const label = document.getElementById('labelSelect').value;
             
             hideError();
@@ -564,15 +564,14 @@
                     issues: issues
                 };
 
-                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                // Open JSON in new tab
+                const jsonStr = JSON.stringify(exportData, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `github-issues-${getOrgName()}-${label || 'all'}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                const newTab = window.open(url, '_blank');
+                
+                // Clean up URL after a delay
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
 
                 showLoading(false);
             } catch (error) {
