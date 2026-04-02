@@ -634,12 +634,12 @@
         function showLoading(show, text = 'Loading...') {
             const loadingDiv = document.getElementById('loading');
             const searchBtn = document.getElementById('searchBtn');
-            const exportBtn = document.getElementById('exportBtn');
+            const viewBtn = document.getElementById('viewBtn');
             
             loadingDiv.style.display = show ? 'block' : 'none';
             loadingDiv.textContent = text;
             searchBtn.disabled = show;
-            exportBtn.disabled = show;
+            viewBtn.disabled = show;
             
             if (show) {
                 searchBtn.textContent = 'Loading...';
