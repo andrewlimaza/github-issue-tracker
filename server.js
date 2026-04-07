@@ -180,7 +180,10 @@ async function fetchIssuesByLabel(repoName, label, limit = 100) {
             headers
         });
 
-        return response.data.slice(0, limit).map(issue => ({
+        return response.data
+            .filter(issue => !issue.pull_request) // Exclude pull requests, only show issues
+            .slice(0, limit)
+            .map(issue => ({
             number: issue.number,
             title: issue.title,
             url: issue.html_url,
